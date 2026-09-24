@@ -1,0 +1,6 @@
+client/
+index.js
+package.json
+package-lock.json
+Screenshot*
+SECURITY.md
