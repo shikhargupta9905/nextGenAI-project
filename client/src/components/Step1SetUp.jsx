@@ -70,15 +70,30 @@ function Step1SetUp({ onStart }) {
     };
 
     const handleStart = async () => {
+        if (loading) return;
+
+        const numericMatch = String(experience ?? "").match(/\d+(?:\.\d+)?/);
+        const numericExperience = numericMatch
+            ? Number(numericMatch[0])
+            : NaN;
+
+        if (!role.trim()) {
+            console.error("Job role is required.");
+            return;
+        }
+
+        if (!Number.isFinite(numericExperience) || numericExperience < 0) {
+            console.error("Please enter a valid experience, e.g. 0, 1, 2.5, or '2 years'.");
+            return;
+        }
+
         setLoading(true);
 
         try {
             const formData = new FormData();
-            
-            const numericExperience = experience.replace(/[^0-9.]/g, "");
 
-            formData.append("jobRole", role);
-            formData.append("experience", numericExperience || "0");
+            formData.append("jobRole", role.trim());
+            formData.append("experience", String(numericExperience));
             formData.append("interviewType", mode);
 
             if (resumeFile) {
