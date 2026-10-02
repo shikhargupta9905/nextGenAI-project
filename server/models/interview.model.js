@@ -45,6 +45,11 @@ const interviewSchema = new mongoose.Schema(
         feedback: {
           type: String,
           default: ""
+        },
+
+        score: {
+          type: Number,
+          default: 0
         }
       }
     ],
@@ -57,6 +62,27 @@ const interviewSchema = new mongoose.Schema(
     report: {
       type: String,
       default: ""
+    },
+
+    strengths: {
+      type: [String],
+      default: []
+    },
+
+    weaknesses: {
+      type: [String],
+      default: []
+    },
+
+    recommendation: {
+      type: String,
+      default: ""
+    },
+
+    status: {
+      type: String,
+      enum: ["in-progress", "completed"],
+      default: "in-progress"
     }
   },
   {

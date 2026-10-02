@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaArrowLeft, FaCheckCircle } from "react-icons/fa";
+import { ServerUrl } from "../App";
 
 function InterviewReport() {
   const { id } = useParams();
@@ -14,14 +15,14 @@ function InterviewReport() {
     const getInterviewReport = async () => {
       try {
         const result = await axios.get(
-          `${ServerUrl}api/interview/report/${id}`,
+          `${ServerUrl}/api/interview/report/${id}`,
           {
             withCredentials: true,
           }
         );
 
         console.log(result.data);
-        setReport(result.data);
+        setReport(result.data.interview || result.data);
       } catch (error) {
         console.log(error);
       } finally {
@@ -98,7 +99,7 @@ function InterviewReport() {
 
               <p className="text-gray-500 mt-2">
                 {report.experience || 0} years experience ·{" "}
-                {report.mode || "N/A"}
+                {report.interviewType || report.mode || "N/A"}
               </p>
             </div>
 
@@ -108,7 +109,7 @@ function InterviewReport() {
               </p>
 
               <p className="text-4xl font-bold text-emerald-600">
-                {score}/10
+                {score}/100
               </p>
             </div>
 

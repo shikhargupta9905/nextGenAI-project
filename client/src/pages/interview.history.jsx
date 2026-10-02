@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
+import { ServerUrl } from "../App";
 
 function InterviewHistory() {
   const [interviews, setInterviews] = useState([]);
@@ -11,7 +12,7 @@ function InterviewHistory() {
     const getMyInterviews = async () => {
       try {
         const result = await axios.get(
-          ServerUrl + "api/interview/get-interview",
+          ServerUrl + "/api/dashboard/interviews",
           {
             withCredentials: true,
           }
@@ -19,7 +20,7 @@ function InterviewHistory() {
 
         console.log(result.data);
 
-        setInterviews(result.data || []);
+        setInterviews(result.data.interviews || []);
       } catch (error) {
         console.log(error);
         setInterviews([]);
@@ -64,7 +65,8 @@ function InterviewHistory() {
           <div className="grid gap-3">
             {interviews.map((item, index) => (
               <div
-                key={item._id || index}
+                key={item._id || item.id || index}
+                onClick={() => navigate(`/report/${item.id || item._id}`)}
                 className="bg-white p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100"
               >
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -76,7 +78,7 @@ function InterviewHistory() {
 
                     <p className="text-gray-500 text-sm mt-1">
                       {item.experience || 0} years ·{" "}
-                      {item.mode || "N/A"}
+                      {item.interviewType || item.mode || "N/A"}
                     </p>
 
                     <p className="text-xs text-gray-400 mt-2">
@@ -89,7 +91,7 @@ function InterviewHistory() {
                   {/* Score */}
                   <div className="text-right">
                     <p className="text-xl font-bold text-emerald-600">
-                      {item.finalScore || item.score || 0}/10
+                      {item.finalScore || item.score || 0}/100
                     </p>
 
                     <p className="text-sm font-medium text-gray-500">

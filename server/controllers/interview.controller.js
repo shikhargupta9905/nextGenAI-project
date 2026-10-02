@@ -48,17 +48,57 @@ pdfjsLib.GlobalWorkerOptions.verbosity = 0;
         };
 
 export const analyzeResume = async (req, res) => {
+  let uploadedFilePath = null;
+
   try {
-    // Your resume extraction / AI logic here
-    res.status(200).json({
-      role: "Software Engineer",
-      experience: "2 years",
-      projects: ["Project 1", "Project 2"],
-      skills: ["React", "Node.js"],
-      resumeText: "Extracted resume content..."
+    if (!req.file) {
+      return res.status(400).json({ message: "Resume PDF is required" });
+    }
+
+    uploadedFilePath = req.file.path;
+    const resumeText = await extractPdfText(uploadedFilePath);
+
+    if (!resumeText.trim()) {
+      return res.status(400).json({ message: "Could not extract text from resume" });
+    }
+
+    const prompt = [
+      "Extract structured candidate information from this resume.",
+      "",
+      "Return ONLY valid JSON:",
+      '{ "role": "", "experience": "", "projects": [], "skills": [] }',
+      "",
+      "Resume:",
+      resumeText
+    ].join("\n");
+
+    const aiResponse = await askAi(prompt);
+
+    let data;
+    try {
+      data = JSON.parse(
+        aiResponse.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim()
+      );
+    } catch {
+      data = { role: "", experience: "", projects: [], skills: [] };
+    }
+
+    return res.status(200).json({
+      role: data.role || "",
+      experience: data.experience || "",
+      projects: Array.isArray(data.projects) ? data.projects : [],
+      skills: Array.isArray(data.skills) ? data.skills : [],
+      resumeText
     });
   } catch (error) {
-    res.status(500).json({ message: "Resume analysis failed", error: error.message });
+    console.error("Resume analysis error:", error);
+    return res.status(500).json({
+      message: error.message || "Resume analysis failed"
+    });
+  } finally {
+    if (uploadedFilePath) {
+      try { await fs.unlink(uploadedFilePath); } catch {}
+    }
   }
 };
 
@@ -91,23 +131,11 @@ export const startInterview = async (req, res) => {
       });
     }
 
-    if (!req.file) {
-      return res.status(400).json({
-        message: "Resume PDF is required"
-      });
-    }
+    uploadedFilePath = req.file?.path || null;
 
-    uploadedFilePath = req.file.path;
-
-    const resumeText = await extractPdfText(
-      req.file.path
-    );
-
-    if (!resumeText.trim()) {
-      return res.status(400).json({
-        message: "Could not extract text from resume"
-      });
-    }
+    const resumeText = req.file
+      ? await extractPdfText(req.file.path)
+      : "";
 
     const prompt = `
 You are an expert technical interviewer.
@@ -203,21 +231,20 @@ Return ONLY valid JSON.
       score: 0,
       report: ""
     });
+    let creditsLeft;
     try {
-  await deductCredits(userId, 10);
-} catch (error) {
-  await Interview.findByIdAndDelete(interview._id);
-
-  return res.status(400).json({
-    message: error.message
-  });
-}
+      creditsLeft = await deductCredits(userId, 10);
+    } catch (error) {
+      await Interview.findByIdAndDelete(interview._id);
+      return res.status(400).json({ message: error.message });
+    }
 
     return res.status(201).json({
       message:
         "Interview created successfully",
 
       interviewId: interview._id,
+      creditsLeft,
 
       interview: {
         id: interview._id,
@@ -337,6 +364,7 @@ Rules:
     }
 
     question.feedback = evaluation.feedback || "";
+    question.score = Math.max(0, Math.min(10, Number(evaluation.score) || 0));
     await interview.save();
 
     return res.status(200).json({
@@ -502,9 +530,16 @@ Rules:
       );
 
     interview.score = finalScore;
+    interview.status = "completed";
 
     interview.report =
       result.report || "";
+    interview.strengths =
+      Array.isArray(result.strengths) ? result.strengths : [];
+    interview.weaknesses =
+      Array.isArray(result.weaknesses) ? result.weaknesses : [];
+    interview.recommendation =
+      result.recommendation || "";
 
     await interview.save();
 
@@ -527,7 +562,9 @@ Rules:
         result.weaknesses || [],
 
       recommendation:
-        result.recommendation || ""
+        result.recommendation || "",
+
+      questions: interview.questions
     });
 
   } catch (error) {

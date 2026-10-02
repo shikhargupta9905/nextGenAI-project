@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
 import axios from 'axios';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
-import Home from './pages/Home';
-import Auth from './pages/Auth';
-import Pricing from './pages/Pricing';          
-import InterviewPage from './pages/InterviewPage'; 
+import Home from './pages/home.jsx';
+import Auth from './pages/Auth.jsx';
+import Pricing from './pages/Pricing.jsx';          
+import InterviewPage from './pages/InterviewPage.jsx';
+import InterviewHistory from './pages/interview.history.jsx';
+import InterviewReport from './pages/InterviewReport.jsx'; 
 
 import { useDispatch } from 'react-redux';
 import { setUserData } from './redux/userSlice';
@@ -38,6 +40,11 @@ function App() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/interview" element={<InterviewPage />} />
             <Route path="/pricing" element={<Pricing />} />   {/* ⬅️ Yahan add karo */}
+            <Route path="/history" element={<InterviewHistory />} />
+            <Route path="/interview-history" element={<InterviewHistory />} />
+            <Route path="/report/:id" element={<InterviewReport />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
 }
