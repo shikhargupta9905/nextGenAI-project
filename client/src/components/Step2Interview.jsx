@@ -225,19 +225,22 @@ function Step2Interview({ interviewData, onFinish }) {
             const submitAnswer = async () => {
     if (isSubmitting) return;
 
-    const targetInterviewId = 
-        interviewData?._id || 
-        interviewData?.interviewId || 
-        interviewData?.interview?.id || 
-        interviewData?.interview?._id||
+    const targetInterviewId =
+        interviewData?._id ||
+        interviewData?.interviewId ||
+        interviewData?.interview?.id ||
+        interviewData?.interview?._id ||
         localStorage.getItem("currentInterviewId");
 
-    const targetQuestionId = 
-        currentQuestion?._id || 
+    const targetQuestionId =
+        currentQuestion?._id ||
         currentQuestion?.id;
 
     if (!targetInterviewId || !targetQuestionId) {
-        console.error("Missing IDs:", { targetInterviewId, targetQuestionId });
+        console.error("Missing IDs:", {
+            targetInterviewId,
+            targetQuestionId
+        });
         return;
     }
 
@@ -255,11 +258,37 @@ function Step2Interview({ interviewData, onFinish }) {
             { withCredentials: true }
         );
 
-        setFeedback(result.data.feedback);
-        speakText(result.data.feedback);
+        const evaluatedFeedback = result.data?.feedback || "Answer submitted successfully.";
+        setFeedback(evaluatedFeedback);
+
+        await speakText(evaluatedFeedback);
+
+        // The final answer has now been saved successfully.
+        // Generate the report only after the answer API has completed.
+        if (currentIndex === questions.length - 1) {
+            try {
+                const reportResult = await axios.post(
+                    ServerUrl + "/api/interview/report",
+                    { interviewId: targetInterviewId },
+                    { withCredentials: true }
+                );
+
+                onFinish(reportResult.data);
+                return;
+            } catch (reportError) {
+                console.error(
+                    "Final report error:",
+                    reportError.response?.data || reportError.message
+                );
+            }
+        }
+
         setIsSubmitting(false);
     } catch (error) {
-        console.error("Submit error:", error.response?.data || error.message);
+        console.error(
+            "Submit error:",
+            error.response?.data || error.message
+        );
         setIsSubmitting(false);
     }
 };
@@ -268,7 +297,6 @@ function Step2Interview({ interviewData, onFinish }) {
             setFeedback("");
 
             if (currentIndex + 1 >= questions.length) {
-                finishInterview();
                 return;
             }
 
@@ -276,21 +304,6 @@ function Step2Interview({ interviewData, onFinish }) {
 
             setCurrentIndex((prevIndex) => prevIndex + 1);
         };
-
-        const finishInterview = async () => {
-            stopMic();
-            setIsMicOn(false);
-            try {
-                const result = await axios.post(
-                    ServerUrl + "/api/interview/report",
-                    { interviewId },
-                    { withCredentials: true }
-                );
-                onFinish(result.data);
-            } catch (error) {
-                console.log(error);
-            }
-            };
 
             useEffect(() => {
                 if (isIntroPhase) return;
