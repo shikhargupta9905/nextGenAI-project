@@ -20,6 +20,7 @@ function Step2Interview({ interviewData, onFinish }) {
     const [isIntroPhase, setIsIntroPhase] = useState(true);
 
     const [isMicOn, setIsMicOn] = useState(true);
+    const isMicOnRef = useRef(true);
     const recognitionRef = useRef(null);
     const [isAiPlaying, setIsAiPlaying] = useState(false);
 
@@ -126,31 +127,53 @@ function Step2Interview({ interviewData, onFinish }) {
         useEffect(() => {
             if (!selectedVoice) return;
 
-            const runIntro = async () => {
-                if(isIntroPhase) {
-                const { userName = "Candidate" } = interviewData || {};
+            let cancelled = false;
 
-                await speakText(
-                "I'll ask you a few questions. Just answer naturally, take your time. Let's begin."
-                );
+            const runInterviewStep = async () => {
+                if (isIntroPhase) {
+                    await speakText(
+                        "I'll ask you a few questions. Just answer naturally, take your time. Let's begin."
+                    );
 
-                setIsIntroPhase(false);}
-                else if (currentQuestion){
-                    await new Promise(r => setTimeout(r, 800)); 
-                    if (currentIndex === questions.length - 1) {
-                        await speakText(
-                            "This is the last question. Give it your best shot!"
-                        );
+                    if (!cancelled) {
+                        setIsIntroPhase(false);
                     }
-                    await speakText(currentQuestion.question);
-                    if(isMicOn){ 
-                        startMic();
-                    }
+                    return;
                 }
-            }
-            runIntro();
 
-            }, [selectedVoice , isIntroPhase,currentIndex]);
+                if (!currentQuestion) return;
+
+                // Fully reset the previous recognition session before every question.
+                resetMic();
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+                if (cancelled) return;
+
+                if (currentIndex === questions.length - 1) {
+                    await speakText(
+                        "This is the last question. Give it your best shot!"
+                    );
+                    if (cancelled) return;
+                }
+
+                await speakText(currentQuestion.question);
+                if (cancelled) return;
+
+                // Give Chrome SpeechRecognition a clean event-loop turn after TTS.
+                await new Promise(resolve => setTimeout(resolve, 500));
+                if (!cancelled && isMicOnRef.current) {
+                    startMicWithRetry();
+                }
+            };
+
+            runInterviewStep();
+
+            return () => {
+                cancelled = true;
+                window.speechSynthesis.cancel();
+                resetMic();
+            };
+        }, [selectedVoice, isIntroPhase, currentIndex]);
 
             useEffect(() => {
                 if (isIntroPhase) return;
@@ -204,36 +227,76 @@ function Step2Interview({ interviewData, onFinish }) {
                     const recognition = recognitionRef.current;
 
                     if (!recognition || isAiPlaying || isRecognitionRunningRef.current) {
-                        return;
+                        return false;
                     }
 
                     try {
                         recognition.start();
                         isRecognitionRunningRef.current = true;
+                        return true;
                     } catch (err) {
-                        // Chrome can throw InvalidStateError during a stop/start transition.
                         console.warn("Speech recognition couldn't start:", err);
+                        isRecognitionRunningRef.current = false;
+                        return false;
                     }
                 };
-                
+
+                const startMicWithRetry = () => {
+                    if (!isMicOnRef.current || isAiPlaying) return;
+
+                    if (startMic()) return;
+
+                    setTimeout(() => {
+                        if (!isMicOnRef.current || isAiPlaying) return;
+                        startMic();
+                    }, 200);
+                };
+
                 const stopMic = () => {
                     const recognition = recognitionRef.current;
 
-                    if (!recognition) return;
+                    if (!recognition) {
+                        isRecognitionRunningRef.current = false;
+                        return;
+                    }
 
                     try {
                         recognition.stop();
                     } catch (err) {
-                        console.warn("Speech recognition couldn't stop:", err);
+                        // Recognition may already be stopped.
                     }
+
+                    isRecognitionRunningRef.current = false;
                 };
+
+                const resetMic = () => {
+                    const recognition = recognitionRef.current;
+
+                    if (!recognition) {
+                        isRecognitionRunningRef.current = false;
+                        return;
+                    }
+
+                    try {
+                        recognition.abort();
+                    } catch (err) {
+                        // Recognition may already be stopped.
+                    }
+
+                    isRecognitionRunningRef.current = false;
+                };
+
             const toggleMic = () => {
-                if (isMicOn) {
-                    stopMic();
+                const nextMicState = !isMicOn;
+                isMicOnRef.current = nextMicState;
+
+                if (nextMicState) {
+                    startMicWithRetry();
                 } else {
-                    startMic();
+                    resetMic();
                 }
-                setIsMicOn(!isMicOn);
+
+                setIsMicOn(nextMicState);
             };
             const submitAnswer = async () => {
     if (isSubmitting) return;
