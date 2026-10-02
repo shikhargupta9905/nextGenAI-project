@@ -10,18 +10,14 @@ import { BsArrowRight } from 'react-icons/bs';
 
 
 function Step2Interview({ interviewData, onFinish }) {
-    
-const targetInterviewId =
-        interviewData?.interviewId ||
-        interviewData?._id ||
-        interviewData?.interview?._id ||
-        interviewData?.interview?.id ||
-        interviewData?.id;
+    const interviewId = interviewData?.interviewId || localStorage.getItem("currentInterviewId");
+    const questions = interviewData?.questions || [];
+    const userRole = interviewData?.userRole;
 
-    const questions =
-        interviewData?.questions ||
-        interviewData?.interview?.questions ||
-        [];    const [isIntroPhase, setIsIntroPhase] = useState(true);
+    console.log("Step2 - InterviewId:", interviewId);
+    console.log("Step2 - Questions:", questions);
+
+    const [isIntroPhase, setIsIntroPhase] = useState(true);
 
     const [isMicOn, setIsMicOn] = useState(true);
     const recognitionRef = useRef(null);
@@ -72,7 +68,6 @@ const targetInterviewId =
             return;
         }
 
-        // Fallback inside loadVoices block
         setSelectedVoice(voices[0]);
         setVoiceGender("female");
     }; 
@@ -80,7 +75,6 @@ const targetInterviewId =
                 window.speechSynthesis.onvoiceschanged = loadVoices;
         }, []);
 
-                // SPEAK FUNCTION
         const speakText = (text) => {
             return new Promise((resolve) => {
                 if (!window.speechSynthesis || !selectedVoice) {
@@ -90,7 +84,6 @@ const targetInterviewId =
 
                 window.speechSynthesis.cancel();
 
-                // Add natural pauses after commas and periods
                 const humanText = text
                     .replace(/,/g, ", ... ")
                     .replace(/\./g, ". ... ");
@@ -104,37 +97,37 @@ const targetInterviewId =
 
                 utterance.onstart = () => {
                     setIsAiPlaying(true);
-                    stopMic(); // Stop mic when AI starts speaking
-                        videoRef.current?.play();
+                    stopMic();
+                    videoRef.current?.play();
                 };
 
                 utterance.onend = () => {
-  
-                        videoRef.current?.pause();
-                            if (videoRef.current) {
-                                videoRef.current.currentTime = 0;
-                            }
-                        setIsAiPlaying(false);
+                    videoRef.current?.pause();
+                    if (videoRef.current) {
+                        videoRef.current.currentTime = 0;
+                    }
+                    setIsAiPlaying(false);
 
-                        if(isMicOn) startMic(); // Restart mic if it was on before
+                    if(isMicOn) startMic();
 
-                        setTimeout(() => {
-                          setSubtitle(""); // Clear subtitle after speech ends
-                            resolve();
-                        }, 300); 
+                    setTimeout(() => {
+                        setSubtitle("");
+                        resolve();
+                    }, 300); 
                 };
 
-                setSubtitle(text); // Set subtitle when speech starts
+                setSubtitle(text);
 
                 window.speechSynthesis.speak(utterance);
             });
         };
+
         useEffect(() => {
             if (!selectedVoice) return;
 
             const runIntro = async () => {
                 if(isIntroPhase) {
-                const { interviewId, questions = [], userRole, userName = "Candidate" } = interviewData;
+                const { userName = "Candidate" } = interviewData || {};
 
                 await speakText(
                 "I'll ask you a few questions. Just answer naturally, take your time. Let's begin."
@@ -143,7 +136,6 @@ const targetInterviewId =
                 setIsIntroPhase(false);}
                 else if (currentQuestion){
                     await new Promise(r => setTimeout(r, 800)); 
-                    // if last ques (hard level)
                     if (currentIndex === questions.length - 1) {
                         await speakText(
                             "This is the last question. Give it your best shot!"
@@ -151,7 +143,7 @@ const targetInterviewId =
                     }
                     await speakText(currentQuestion.question);
                     if(isMicOn){ 
-                        startMic(); // Start mic after question is spoken
+                        startMic();
                     }
                 }
             }
@@ -162,7 +154,6 @@ const targetInterviewId =
             useEffect(() => {
                 if (isIntroPhase) return;
                 if (!currentQuestion) return;
-                // if(isSubmitting) return;
                 const timer = setInterval(() => {
                     setTimeLeft((prev) => {
                     if (prev <= 1) {
@@ -182,6 +173,7 @@ const targetInterviewId =
                         setTimeLeft(currentQuestion.timeLimit || 60);
                     }
                 }, [currentIndex, isIntroPhase]);
+
                 useEffect(() => {
                 if (!("webkitSpeechRecognition" in window)) return;
 
@@ -201,6 +193,7 @@ const targetInterviewId =
 
                 recognitionRef.current = recognition;
                 }, []);
+
                 const startMic = () => {
                     if (
                         recognitionRef.current &&
@@ -236,7 +229,8 @@ const targetInterviewId =
         interviewData?._id || 
         interviewData?.interviewId || 
         interviewData?.interview?.id || 
-        interviewData?.interview?._id;
+        interviewData?.interview?._id||
+        localStorage.getItem("currentInterviewId");
 
     const targetQuestionId = 
         currentQuestion?._id || 
@@ -270,24 +264,19 @@ const targetInterviewId =
     }
 };
         const handleNext = async () => {
-            // Clear previous answer and feedback
             setAnswer("");
             setFeedback("");
 
-            // Check if this was the last question
             if (currentIndex + 1 >= questions.length) {
                 finishInterview();
                 return;
             }
 
-            // Speak transition message
             await speakText("Alright, let's move to the next question.");
 
-            // Move to next question
             setCurrentIndex((prevIndex) => prevIndex + 1);
-
-        
         };
+
         const finishInterview = async () => {
             stopMic();
             setIsMicOn(false);
@@ -296,8 +285,7 @@ const targetInterviewId =
                     { interviewId },
                     { withCredentials: true }
                 );
-                onFinish(result.data
-                );
+                onFinish(result.data);
             } catch (error) {
                 console.log(error);
             }
@@ -330,7 +318,6 @@ const targetInterviewId =
 
             <div className='w-full max-w-[1200] min-h-[80vh] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col lg:flex-row overflow-hidden'>
 
-                {/* Video section */}
                 <div className='w-full lg:w-[35%] bg-white flex flex-col items-center p-6 space-y-6 border-r border-gray-200'>
 
                     <div className='w-full max-w-sm rounded-2xl overflow-hidden shadow-xl'>
@@ -347,7 +334,6 @@ const targetInterviewId =
 
                     </div>
 
-                    {/* subtitle */}
                     {subtitle && (
                     <div className='w-full max-w-md bg-gray-50 border
                          border-gray-200 rounded-xl p-4 shadow-sm'>
@@ -356,7 +342,6 @@ const targetInterviewId =
                     </div>
                     )}
 
-                    {/* Timer Area */}
                     <div className='w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-md p-6 space-y-5'>
 
                         <div className='flex justify-between items-center'>
@@ -396,14 +381,12 @@ const targetInterviewId =
                     </div>
 
                 </div>
-              {/* Text / Interview section */}
               <div className='w-full lg:w-[65%] p-6 sm:p-8 flex flex-col'>
 
                   <h2 className='text-xl sm:text-2xl font-bold text-emerald-600 mb-6'>
                       AI Smart Interview
                   </h2>
 
-                  {/* Question */}
                   {!isIntroPhase && (
                       <div className='relative mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-200 shadow-sm'>
 
@@ -417,7 +400,6 @@ const targetInterviewId =
 
                   </div>)
 }
-                  {/* Answer */}
                   <textarea
                      placeholder="Type your answer here..."
                     onChange={(e) => setAnswer(e.target.value)}
@@ -427,7 +409,6 @@ const targetInterviewId =
                     focus:ring-2 focus:ring-emerald-500 transition text-gray-800"
                 />
 
-                  {/* Buttons */}
               {!feedback ? (
                     <div className="flex items-center gap-4 sm:gap-6 mt-6">
 
