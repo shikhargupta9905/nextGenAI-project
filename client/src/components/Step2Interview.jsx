@@ -33,6 +33,9 @@ function Step2Interview({ interviewData, onFinish }) {
 
     const [selectedVoice, setSelectedVoice] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
+    const submittedQuestionRef = useRef(null);
+    const questionFlowRef = useRef(0);
     const [voiceGender, setVoiceGender] = useState("female");
     const [subtitle, setSubtitle] = useState("");
 
@@ -125,6 +128,10 @@ function Step2Interview({ interviewData, onFinish }) {
         };
 
         useEffect(() => {
+            // Every question gets a fresh submit lock.
+            submittedQuestionRef.current = null;
+            isSubmittingRef.current = false;
+
             if (!selectedVoice) return;
 
             let cancelled = false;
@@ -299,7 +306,20 @@ function Step2Interview({ interviewData, onFinish }) {
                 setIsMicOn(nextMicState);
             };
             const submitAnswer = async () => {
-    if (isSubmitting) return;
+    const questionId =
+        currentQuestion?._id ||
+        currentQuestion?.id ||
+        `question-${currentIndex}`;
+
+    // Hard lock: a question can be submitted only once.
+    // This protects against timer + button + stale speech callbacks firing together.
+    if (
+        isSubmittingRef.current ||
+        submittedQuestionRef.current === questionId
+    ) {
+        console.log("Submit ignored - question already submitting/submitted:", questionId);
+        return;
+    }
 
     const targetInterviewId =
         interviewData?._id ||
@@ -321,6 +341,8 @@ function Step2Interview({ interviewData, onFinish }) {
     }
 
     stopMic();
+    isSubmittingRef.current = true;
+    submittedQuestionRef.current = questionId;
     setIsSubmitting(true);
 
     try {
@@ -359,22 +381,35 @@ function Step2Interview({ interviewData, onFinish }) {
             }
         }
 
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
     } catch (error) {
         console.error(
             "Submit error:",
             error.response?.data || error.message
         );
+
+        // Allow retry only when the API itself failed.
+        submittedQuestionRef.current = null;
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
     }
 };
         const handleNext = async () => {
-            setAnswer("");
-            setFeedback("");
+            // Never move forward while the current answer is still being submitted.
+            if (isSubmittingRef.current) return;
 
             if (currentIndex + 1 >= questions.length) {
                 return;
             }
+
+            // Stop every old async activity before changing the question.
+            resetMic();
+            window.speechSynthesis.cancel();
+
+            setAnswer("");
+            setFeedback("");
+            submittedQuestionRef.current = null;
 
             await speakText("Alright, let's move to the next question.");
 
@@ -385,9 +420,14 @@ function Step2Interview({ interviewData, onFinish }) {
                 if (isIntroPhase) return;
                 if (!currentQuestion) return;
 
-                if (timeLeft === 0 && !isSubmitting && !feedback) {
+                if (
+                    timeLeft === 0 &&
+                    !isSubmittingRef.current &&
+                    !submittedQuestionRef.current &&
+                    !feedback
+                ) {
                     submitAnswer();
-                    }
+                }
                 }, [timeLeft]);
 
                 useEffect(() => {
