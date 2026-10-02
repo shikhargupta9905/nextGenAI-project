@@ -327,14 +327,21 @@ function Step1SetUp({ onStart }) {
                                             Skills:
                                         </p>
                                         <div className='flex flex-wrap gap-2'>
-                                            {skills.map((s, i) => (
-                                                <span
-                                                    key={i}
-                                                    className='bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm'
-                                                >
-                                                    {s}
-                                                </span>
-                                            ))}
+                                            {skills.map((s, i) => {
+                                                const skillName =
+                                                    typeof s === "string"
+                                                        ? s
+                                                        : s?.name || s?.skill || s?.title || "";
+
+                                                return (
+                                                    <span
+                                                        key={i}
+                                                        className='bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm'
+                                                    >
+                                                        {skillName}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
