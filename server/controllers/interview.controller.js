@@ -114,6 +114,32 @@ export const startInterview = async (req, res) => {
 
     const userId = req.userId;
 
+    // FormData values arrive as strings. Normalize experience so NaN
+    // can never reach the Mongoose Number field.
+    const experienceText =
+      typeof experience === "string" ? experience.trim() : experience;
+
+    let normalizedExperience = Number(experienceText);
+
+    if (!Number.isFinite(normalizedExperience)) {
+      const extractedExperience =
+        typeof experienceText === "string"
+          ? experienceText.match(/\d+(?:\.\d+)?/)
+          : null;
+
+      normalizedExperience = extractedExperience
+        ? Number(extractedExperience[0])
+        : 0;
+    }
+
+    if (!Number.isFinite(normalizedExperience) || normalizedExperience < 0) {
+      return res.status(400).json({
+        message: "Experience must be a valid non-negative number"
+      });
+    }
+
+    normalizedExperience = Math.round(normalizedExperience * 10) / 10;
+
     if (!userId) {
       return res.status(401).json({
         message: "User is not authenticated"
@@ -121,9 +147,10 @@ export const startInterview = async (req, res) => {
     }
 
     if (
-      !jobRole ||
+      !jobRole?.trim() ||
       experience === undefined ||
-      !interviewType
+      experience === null ||
+      !interviewType?.trim()
     ) {
       return res.status(400).json({
         message:
@@ -146,7 +173,7 @@ Job Role:
 ${jobRole}
 
 Experience:
-${experience} years
+${normalizedExperience} years
 
 Interview Type:
 ${interviewType}
@@ -219,12 +246,10 @@ Return ONLY valid JSON.
     const interview = await Interview.create({
       userId,
       jobRole,
-      experience: Number(experience),
+      experience: normalizedExperience,
       interviewType,
 
-      resume: path.basename(
-        req.file.path
-      ),
+      resume: req.file ? path.basename(req.file.path) : "",
 
       resumeText,
       questions,
