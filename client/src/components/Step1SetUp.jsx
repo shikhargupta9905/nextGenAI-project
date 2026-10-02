@@ -290,7 +290,32 @@ function Step1SetUp({ onStart }) {
                                         </p>
                                         <ul className='list-disc list-inside text-gray-600 space-y-1'>
                                             {projects.map((p, i) => (
-                                                <li key={i}>{p}</li>
+                                                <li key={i} className='py-2'>
+                                                    {typeof p === "string" ? (
+                                                        p
+                                                    ) : (
+                                                        <div>
+                                                            <p className='font-semibold text-gray-800'>
+                                                                {p?.name || "Unnamed Project"}
+                                                            </p>
+
+                                                            {p?.technologies && (
+                                                                <p className='text-sm text-gray-500 mt-1'>
+                                                                    <span className='font-medium'>Technologies:</span>{" "}
+                                                                    {Array.isArray(p.technologies)
+                                                                        ? p.technologies.join(", ")
+                                                                        : p.technologies}
+                                                                </p>
+                                                            )}
+
+                                                            {p?.description && (
+                                                                <p className='text-sm text-gray-600 mt-1'>
+                                                                    {p.description}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </li>
                                             ))}
                                         </ul>
                                     </div>
