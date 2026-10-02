@@ -111,10 +111,13 @@ function Step3Report({ report }) {
 
                 <div className="mt-8 text-center">
                     <button
-                        onClick={() => navigate("/interview")}
+                        onClick={() => {
+                        localStorage.removeItem("currentInterviewId");
+                        navigate("/", { replace: true });
+                    }}
                         className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700"
                     >
-                        Start Another Interview
+                        Start Next Interview
                     </button>
                 </div>
             </div>
