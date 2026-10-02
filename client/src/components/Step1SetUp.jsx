@@ -12,6 +12,44 @@ import { ServerUrl } from "../App"
 import { useSelector, useDispatch } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
 
+function normalizeExperience(value) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === "object" && value !== null) {
+        value =
+            value.years ??
+            value.experience ??
+            value.value ??
+            value.duration ??
+            "";
+    }
+
+    const text = String(value ?? "").trim().toLowerCase();
+
+    if (!text) return null;
+
+    // Common resume-AI output for students/candidates.
+    if (
+        text.includes("fresher") ||
+        text.includes("fresh graduate") ||
+        text === "student" ||
+        text.includes("no experience") ||
+        text.includes("entry level")
+    ) {
+        return 0;
+    }
+
+    const match = text.match(/\d+(?:\.\d+)?/);
+
+    if (!match) return null;
+
+    const number = Number(match[0]);
+
+    return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
 function Step1SetUp({ onStart }) {
 
     const { userData } = useSelector((state) => state.user)
@@ -52,7 +90,12 @@ function Step1SetUp({ onStart }) {
             console.log(result.data);
 
             setRole(result.data.role || "");
-            setExperience(result.data.experience || "");
+            const detectedExperience = normalizeExperience(result.data.experience);
+            setExperience(
+                detectedExperience !== null
+                    ? String(detectedExperience)
+                    : ""
+            );
             setProjects(result.data.projects || []);
             setSkills(result.data.skills || []);
             setResumeText(result.data.resumeText || "");
@@ -72,10 +115,7 @@ function Step1SetUp({ onStart }) {
     const handleStart = async () => {
         if (loading) return;
 
-        const numericMatch = String(experience ?? "").match(/\d+(?:\.\d+)?/);
-        const numericExperience = numericMatch
-            ? Number(numericMatch[0])
-            : NaN;
+        const numericExperience = normalizeExperience(experience);
 
         if (!role.trim()) {
             console.error("Job role is required.");
