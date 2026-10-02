@@ -108,8 +108,9 @@ function Step2Interview({ interviewData, onFinish }) {
                     }
                     setIsAiPlaying(false);
 
-                    if(isMicOn) startMic();
-
+                    // Mic is started only by the question-flow effect.
+                    // Starting it here as well causes SpeechRecognition races
+                    // when moving from one question to the next.
                     setTimeout(() => {
                         setSubtitle("");
                         resolve();
@@ -191,27 +192,39 @@ function Step2Interview({ interviewData, onFinish }) {
                     isRecognitionRunningRef.current = false;
                 };
 
+                recognition.onerror = (event) => {
+                    console.warn("Speech recognition error:", event.error);
+                    isRecognitionRunningRef.current = false;
+                };
+
                 recognitionRef.current = recognition;
                 }, []);
 
                 const startMic = () => {
-                    if (
-                        recognitionRef.current &&
-                        !isAiPlaying &&
-                        !isRecognitionRunningRef.current
-                    ) {
-                        try {
-                            recognitionRef.current.start();
-                            isRecognitionRunningRef.current = true;
-                        } catch (err) {
-                            console.warn("Speech recognition couldn't start:", err);
-                        }
+                    const recognition = recognitionRef.current;
+
+                    if (!recognition || isAiPlaying || isRecognitionRunningRef.current) {
+                        return;
+                    }
+
+                    try {
+                        recognition.start();
+                        isRecognitionRunningRef.current = true;
+                    } catch (err) {
+                        // Chrome can throw InvalidStateError during a stop/start transition.
+                        console.warn("Speech recognition couldn't start:", err);
                     }
                 };
                 
                 const stopMic = () => {
-                    if (recognitionRef.current) {
-                        recognitionRef.current.stop();
+                    const recognition = recognitionRef.current;
+
+                    if (!recognition) return;
+
+                    try {
+                        recognition.stop();
+                    } catch (err) {
+                        console.warn("Speech recognition couldn't stop:", err);
                     }
                 };
             const toggleMic = () => {
